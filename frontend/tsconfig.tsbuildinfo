@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./components/adminpanel.tsx","./components/studentpanel.tsx","./components/teacherpanel.tsx","./components/timetable.tsx","./lib/api.ts","./lib/electiverules.ts","./lib/types.ts"],"version":"5.9.3"}

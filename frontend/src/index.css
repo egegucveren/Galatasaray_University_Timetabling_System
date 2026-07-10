@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    background-color: #f5f6f8;
+    color: #1a1a1a;
+  }
+}
+
+@layer components {
+  /* ── Buttons ── */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded cursor-pointer transition-all duration-150 border-0;
+  }
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-dark active:scale-[.98] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-white text-ink border border-line hover:bg-gray-50 active:scale-[.98];
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 active:scale-[.98];
+  }
+
+  /* ── Card / Panel ── */
+  .card {
+    @apply bg-white rounded-xl shadow-card overflow-hidden;
+  }
+
+  /* ── Form fields ── */
+  .field-label {
+    @apply block text-xs font-semibold text-muted mb-1 tracking-wide uppercase;
+  }
+  .field-input {
+    @apply w-full border border-line rounded-lg px-3.5 py-2.5 text-sm bg-white text-ink
+           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+           transition-colors;
+  }
+
+  /* ── Section heading ── */
+  .section-heading {
+    @apply text-base font-bold text-ink mb-4;
+  }
+
+  /* ── Status bar ── */
+  .status-bar {
+    @apply px-4 py-2.5 text-xs text-muted bg-gray-50 border-b border-line;
+  }
+
+  /* ── Semester select (professional dropdown) ── */
+  .select-wrap {
+    @apply relative inline-block;
+  }
+  .select-input {
+    @apply appearance-none w-full bg-white border border-line rounded-lg pl-3 pr-8 py-2
+           text-xs font-semibold text-ink shadow-sm cursor-pointer
+           hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
+           transition-colors;
+  }
+  .select-chevron {
+    @apply pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted;
+  }
+}

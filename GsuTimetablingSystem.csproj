@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MySqlConnector" Version="2.6.0" />
+  </ItemGroup>
+
+  <!-- GsuTimetablingSystem.Tests kendi projesi altında ayrı derlenir; bu proje bir alt
+       klasörde olduğu için .NET'in varsayılan dosya taraması (**/*.cs) onu da bu ana
+       projeye dahil etmeye çalışır ve xunit paketi burada olmadığından derleme hatası
+       verir. Bu yüzden test klasörü burada açıkça hariç tutuluyor. -->
+  <ItemGroup>
+    <Compile Remove="GsuTimetablingSystem.Tests/**/*.cs" />
+    <Content Remove="GsuTimetablingSystem.Tests/**/*" />
+    <None Remove="GsuTimetablingSystem.Tests/**/*" />
+  </ItemGroup>
+
+  <!-- Build Vite (React) frontend and copy into wwwroot before C# starts -->
+  <Target Name="BuildFrontend" BeforeTargets="Build">
+    <Message Text="▶ Vite build başlıyor..." Importance="high" />
+    <Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)/frontend" />
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)/frontend" />
+    <RemoveDir Directories="$(MSBuildProjectDirectory)/wwwroot" />
+    <ItemGroup>
+      <FrontendOutput Include="$(MSBuildProjectDirectory)/frontend/out/**/*.*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(FrontendOutput)"
+      DestinationFolder="$(MSBuildProjectDirectory)/wwwroot/%(RecursiveDir)"
+    />
+    <Message Text="✔ Vite build wwwroot'a kopyalandı." Importance="high" />
+  </Target>
+
+</Project>

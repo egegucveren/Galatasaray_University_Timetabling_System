@@ -1,0 +1,6 @@
+@GsuTimetablingSystem_HostAddress = http://localhost:5038
+
+GET {{GsuTimetablingSystem_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
