@@ -3,6 +3,9 @@ namespace GsuTimetablingSystem.Models
     public class Teacher
     {
         public int Id { get; set; }
+
+        // Girişte kullanılan, internal id'den ayrı numara (öğrencinin student_number'ına paralel).
+        public string TeacherNumber { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;

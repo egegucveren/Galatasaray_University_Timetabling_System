@@ -35,5 +35,5 @@
 /Users/egegucveren/Desktop/GsuTimetablingSystem/bin/Debug/net10.0/frontend/tsconfig.json
 /Users/egegucveren/Desktop/GsuTimetablingSystem/bin/Debug/net10.0/package-lock.json
 /Users/egegucveren/Desktop/GsuTimetablingSystem/obj/Debug/net10.0/compressed/7eaiv8k5z7-{0}-p4auzslq3q-p4auzslq3q.gz
-/Users/egegucveren/Desktop/GsuTimetablingSystem/obj/Debug/net10.0/compressed/qahnicxo3d-{0}-rjfcmmjhcl-rjfcmmjhcl.gz
-/Users/egegucveren/Desktop/GsuTimetablingSystem/obj/Debug/net10.0/compressed/xlvirfhhzv-{0}-6h5uufdxpv-6h5uufdxpv.gz
+/Users/egegucveren/Desktop/GsuTimetablingSystem/obj/Debug/net10.0/compressed/2piff496wn-{0}-hhstkwefpd-hhstkwefpd.gz
+/Users/egegucveren/Desktop/GsuTimetablingSystem/obj/Debug/net10.0/compressed/xlvirfhhzv-{0}-n2vywu7ff1-n2vywu7ff1.gz

@@ -62,10 +62,10 @@ export const loginStudent = (studentNumber: string, password: string) =>
     body: JSON.stringify({ studentNumber, password }),
   });
 
-export const loginTeacher = (email: string, password: string) =>
+export const loginTeacher = (teacherNumber: string, password: string) =>
   request<Teacher>("/api/login/teacher", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ teacherNumber, password }),
   });
 
 export const loginAdmin = (email: string, password: string) =>

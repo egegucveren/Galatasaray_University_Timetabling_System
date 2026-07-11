@@ -67,7 +67,7 @@ app.UseStaticFiles();    // serves wwwroot/gsu.png and everything else in wwwroo
 Console.WriteLine($"GSU Timetabling System: http://127.0.0.1:{Port}/");
 Console.WriteLine($"Demo admin: {adminSettings.Email} / {adminSettings.Password}");
 Console.WriteLine("Demo student: 2022001 / 19/07/2004");
-Console.WriteLine("Demo teacher: gulfem.alptekin@gsu.edu.tr / 1234");
+Console.WriteLine("Demo teacher: 1001 / 1234");
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ app.MapPost("/api/login/student", async (StudentLoginRequest login) =>
 
 app.MapPost("/api/login/teacher", async (TeacherLoginRequest login) =>
 {
-    var teacher = await repository.AuthenticateTeacherAsync(login.Email, login.Password);
+    var teacher = await repository.AuthenticateTeacherAsync(login.TeacherNumber, login.Password);
     if (teacher is null)
         return Results.Json(new { Message = "Ogretmen bilgileri hatali." }, statusCode: 401);
 

@@ -1,0 +1,41 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "GsuTimetablingSystem/1.0.0": {
+        "dependencies": {
+          "MySqlConnector": "2.6.0"
+        },
+        "runtime": {
+          "GsuTimetablingSystem.dll": {}
+        }
+      },
+      "MySqlConnector/2.6.0": {
+        "runtime": {
+          "lib/net10.0/MySqlConnector.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.6.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "GsuTimetablingSystem/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "MySqlConnector/2.6.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-YLceXhrEznpXf8XkwvH6JWHjAq0AA2lsf/zYWiESe4B9ki2v473XH2GRcPbLwktBqYu1Uy3Dvs7G+mu48QKL2w==",
+      "path": "mysqlconnector/2.6.0",
+      "hashPath": "mysqlconnector.2.6.0.nupkg.sha512"
+    }
+  }
+}

@@ -245,6 +245,17 @@ namespace GsuTimetablingSystem.Data
                     """);
             }
 
+            // Öğretmen girişi artık internal 'id' PK'sı yerine ayrı bir 'teacher_number' alanı
+            // kullanıyor (öğrencilerin student_number'ına paralel). NULL bırakılıyor; SeedAsync
+            // hemen ardından her satırı doldurur, tekil olması UNIQUE KEY ile garanti edilir.
+            if (await RequiresTeacherNumberMigrationAsync(connection))
+            {
+                await ExecuteAsync(connection, """
+                    ALTER TABLE teachers ADD COLUMN teacher_number VARCHAR(20) NULL;
+                    ALTER TABLE teachers ADD UNIQUE KEY unique_teacher_number (teacher_number);
+                    """);
+            }
+
             await SeedAsync(connection);
 
             // Seed'de (veya daha önceki bir çalıştırmadan kalma) düz metin olarak duran
@@ -344,14 +355,16 @@ namespace GsuTimetablingSystem.Data
             };
         }
 
-        public async Task<Teacher?> AuthenticateTeacherAsync(string email, string password)
+        // Öğretmenler artık e-posta değil, kendi öğretmen numaraları (teacher_number — internal
+        // 'id' PK'sından ayrı, öğrencilerin student_number ile girişine paralel) ile giriş yapıyor.
+        public async Task<Teacher?> AuthenticateTeacherAsync(string teacherNumber, string password)
         {
             await using var connection = new MySqlConnection(_connectionString);
             await connection.OpenAsync();
             await using var command = new MySqlCommand(
-                "SELECT id, name, email, password FROM teachers WHERE email = @email;",
+                "SELECT id, teacher_number, name, email, password FROM teachers WHERE teacher_number = @teacherNumber;",
                 connection);
-            command.Parameters.AddWithValue("@email", email);
+            command.Parameters.AddWithValue("@teacherNumber", teacherNumber);
             await using var reader = await command.ExecuteReaderAsync();
 
             if (!await reader.ReadAsync())
@@ -368,6 +381,7 @@ namespace GsuTimetablingSystem.Data
             return new Teacher
             {
                 Id = reader.GetInt32("id"),
+                TeacherNumber = reader.GetString("teacher_number"),
                 Name = reader.GetString("name"),
                 Email = reader.GetString("email"),
                 Password = string.Empty
@@ -1037,38 +1051,46 @@ namespace GsuTimetablingSystem.Data
         private static async Task SeedAsync(MySqlConnection connection)
         {
             await ExecuteAsync(connection, """
-                INSERT INTO teachers (id, name, email, password) VALUES
-                    (1,  'Prof. Dr. Gülfem Alptekin',           'gulfem.alptekin@gsu.edu.tr',           '1234'),
-                    (2,  'Prof. Dr. Tankut Acarman',           'tankut.acarman@gsu.edu.tr',           '1234'),
-                    (3,  'Doç. Dr. Günce Keziban Orman',       'gunce.keziban.orman@gsu.edu.tr',       '1234'),
-                    (4,  'Dr. Öğr. Üyesi Murat Akın',          'murat.akin@gsu.edu.tr',               '1234'),
-                    (5,  'Dr. Öğr. Üyesi Reis Burak Arslan',   'reis.burak.arslan@gsu.edu.tr',        '1234'),
-                    (6,  'Dr. Öğr. Üyesi Uzay Çetin',          'uzay.cetin@gsu.edu.tr',               '1234'),
-                    (7,  'Dr. Öğr. Üyesi Serhan Daniş',        'serhan.danis@gsu.edu.tr',             '1234'),
-                    (8,  'Dr. Öğr. Üyesi Ayşegül Tüysüz Erman','aysegul.tuysuz.erman@gsu.edu.tr',     '1234'),
-                    (9,  'Dr. Öğr. Üyesi İlknur Erol',         'ilknur.erol@gsu.edu.tr',              '1234'),
-                    (10, 'Dr. Öğr. Üyesi Ahmet Teoman Naskali','ahmet.teoman.naskali@gsu.edu.tr',     '1234'),
-                    (11, 'Dr. Öğr. Üyesi Burak Parlak',        'burak.parlak@gsu.edu.tr',             '1234'),
-                    (12, 'Dr. Öğr. Üyesi Özgün Pınarer',       'ozgun.pinarer@gsu.edu.tr',            '1234'),
-                    (13, 'Dr. Öğr. Üyesi Erden Tuğcu',         'erden.tugcu@gsu.edu.tr',              '1234'),
-                    (14, 'Dr. Öğr. Üyesi Pınar Uluer',         'pinar.uluer@gsu.edu.tr',              '1234'),
-                    (15, 'Öğr. Gör. Dr. Tamer Özyiğit',        'tamer.ozyigit@gsu.edu.tr',            '1234'),
-                    (16, 'Öğr. Gör. Dr. Marie-Christine Peroueme','marie-christine.peroueme@gsu.edu.tr','1234'),
-                    (17, 'Öğr. Gör. Dr. Sultan N. Turhan',     'sultan.turhan@gsu.edu.tr',            '1234'),
-                    (18, 'Öğr. Gör. Damien Berthet',           'damien.berthet@gsu.edu.tr',           '1234'),
-                    (19, 'Arş. Gör. Mustafa Berk Bacaksız',    'mustafa.berk.bacaksiz@gsu.edu.tr',    '1234'),
-                    (20, 'Arş. Gör. Eda Bahar',                'eda.bahar@gsu.edu.tr',                '1234'),
-                    (21, 'Arş. Gör. İsmail Ozan Çelikel',      'ismail.ozan.celikel@gsu.edu.tr',      '1234'),
-                    (22, 'Arş. Gör. Münire Gülru Dedeoğlu',    'munire.gulru.dedeoglu@gsu.edu.tr',    '1234'),
-                    (23, 'Arş. Gör. Timoteos Onur Özçelik',    'timoteos.onur.ozcelik@gsu.edu.tr',    '1234'),
-                    (24, 'Arş. Gör. Şükrü Demir İnan Özer',    'sukru.demir.inan.ozer@gsu.edu.tr',    '1234'),
-                    (25, 'Arş. Gör. Musa Şervan Şahin',        'musa.servan.sahin@gsu.edu.tr',        '1234'),
-                    (26, 'Arş. Gör. Abdülkadir Hazar Ünal',    'abdulkadir.hazar.unal@gsu.edu.tr',    '1234'),
-                    (27, 'Arş. Gör. Batuhan Yılmaz',           'batuhan.yilmaz@gsu.edu.tr',           '1234'),
-                    (28, 'Fatma Ayfer Karayel',                'ayfer.karayel@gsu.edu.tr',            '1234'),
-                    (29, 'Osman Olcay Kunal',                  'olcay.kunal@gsu.edu.tr',              '1234')
+                -- teacher_number: öğretmenin GİRİŞ İÇİN kullandığı numara (internal 'id' PK'sından ayrı,
+                -- öğrencilerin student_number'ına paralel bir tasarım). Format: 1000 + id, sabit 4 hane.
+                INSERT INTO teachers (id, teacher_number, name, email, password) VALUES
+                    (1,  '1001', 'Prof. Dr. Gülfem Alptekin',           'gulfem.alptekin@gsu.edu.tr',           '1234'),
+                    (2,  '1002', 'Prof. Dr. Tankut Acarman',           'tankut.acarman@gsu.edu.tr',           '1234'),
+                    (3,  '1003', 'Doç. Dr. Günce Keziban Orman',       'gunce.keziban.orman@gsu.edu.tr',       '1234'),
+                    (4,  '1004', 'Dr. Öğr. Üyesi Murat Akın',          'murat.akin@gsu.edu.tr',               '1234'),
+                    (5,  '1005', 'Dr. Öğr. Üyesi Reis Burak Arslan',   'reis.burak.arslan@gsu.edu.tr',        '1234'),
+                    (6,  '1006', 'Dr. Öğr. Üyesi Uzay Çetin',          'uzay.cetin@gsu.edu.tr',               '1234'),
+                    (7,  '1007', 'Dr. Öğr. Üyesi Serhan Daniş',        'serhan.danis@gsu.edu.tr',             '1234'),
+                    (8,  '1008', 'Dr. Öğr. Üyesi Ayşegül Tüysüz Erman','aysegul.tuysuz.erman@gsu.edu.tr',     '1234'),
+                    (9,  '1009', 'Dr. Öğr. Üyesi İlknur Erol',         'ilknur.erol@gsu.edu.tr',              '1234'),
+                    (10, '1010', 'Dr. Öğr. Üyesi Ahmet Teoman Naskali','ahmet.teoman.naskali@gsu.edu.tr',     '1234'),
+                    (11, '1011', 'Dr. Öğr. Üyesi Burak Parlak',        'burak.parlak@gsu.edu.tr',             '1234'),
+                    (12, '1012', 'Dr. Öğr. Üyesi Özgün Pınarer',       'ozgun.pinarer@gsu.edu.tr',            '1234'),
+                    (13, '1013', 'Dr. Öğr. Üyesi Erden Tuğcu',         'erden.tugcu@gsu.edu.tr',              '1234'),
+                    (14, '1014', 'Dr. Öğr. Üyesi Pınar Uluer',         'pinar.uluer@gsu.edu.tr',              '1234'),
+                    (15, '1015', 'Öğr. Gör. Dr. Tamer Özyiğit',        'tamer.ozyigit@gsu.edu.tr',            '1234'),
+                    (16, '1016', 'Öğr. Gör. Dr. Marie-Christine Peroueme','marie-christine.peroueme@gsu.edu.tr','1234'),
+                    (17, '1017', 'Öğr. Gör. Dr. Sultan N. Turhan',     'sultan.turhan@gsu.edu.tr',            '1234'),
+                    (18, '1018', 'Öğr. Gör. Damien Berthet',           'damien.berthet@gsu.edu.tr',           '1234'),
+                    (19, '1019', 'Arş. Gör. Mustafa Berk Bacaksız',    'mustafa.berk.bacaksiz@gsu.edu.tr',    '1234'),
+                    (20, '1020', 'Arş. Gör. Eda Bahar',                'eda.bahar@gsu.edu.tr',                '1234'),
+                    (21, '1021', 'Arş. Gör. İsmail Ozan Çelikel',      'ismail.ozan.celikel@gsu.edu.tr',      '1234'),
+                    (22, '1022', 'Arş. Gör. Münire Gülru Dedeoğlu',    'munire.gulru.dedeoglu@gsu.edu.tr',    '1234'),
+                    (23, '1023', 'Arş. Gör. Timoteos Onur Özçelik',    'timoteos.onur.ozcelik@gsu.edu.tr',    '1234'),
+                    (24, '1024', 'Arş. Gör. Şükrü Demir İnan Özer',    'sukru.demir.inan.ozer@gsu.edu.tr',    '1234'),
+                    (25, '1025', 'Arş. Gör. Musa Şervan Şahin',        'musa.servan.sahin@gsu.edu.tr',        '1234'),
+                    (26, '1026', 'Arş. Gör. Abdülkadir Hazar Ünal',    'abdulkadir.hazar.unal@gsu.edu.tr',    '1234'),
+                    (27, '1027', 'Arş. Gör. Batuhan Yılmaz',           'batuhan.yilmaz@gsu.edu.tr',           '1234'),
+                    (28, '1028', 'Fatma Ayfer Karayel',                'ayfer.karayel@gsu.edu.tr',            '1234'),
+                    (29, '1029', 'Osman Olcay Kunal',                  'olcay.kunal@gsu.edu.tr',              '1234'),
+                    -- Aşağıdaki 4 kişi ects.gsu.edu.tr ders detay sayfalarındaki ("Dersi Veren(ler)")
+                    -- doğrulaması sırasında bulundu, önceki kadroda yoktu:
+                    (30, '1030', 'Öğr. Gör. Esin Mukul Taylan',        'emukul@gsu.edu.tr',                   '1234'),
+                    (31, '1031', 'Dr. Öğr. Üyesi Mouloud Adel',        'madel@gsu.edu.tr',                    '1234'),
+                    (32, '1032', 'Öğr. Gör. Burak Arslan',             'ext-gsu@burakarslan.com',             '1234'),  -- DİKKAT: id5 'Reis Burak Arslan'dan FARKLI kişi (ECTS'de ayrı e-posta ile kayıtlı)
+                    (33, '1033', 'Öğr. Gör. Zübeyde Gaye Çankaya Eksen','gayecankaya@yahoo.com',              '1234')
                 ON DUPLICATE KEY UPDATE
-                    name = VALUES(name), email = VALUES(email);
+                    teacher_number = VALUES(teacher_number), name = VALUES(name), email = VALUES(email);
                     -- NOT: password kasıtlı olarak burada güncellenmiyor; ilk kurulumda seed'deki
                     -- düz metin değer yazılır ve HashPlaintextPasswordsAsync tarafından hash'e
                     -- çevrilir, sonraki her yeniden başlatmada bu satır tekrar plaintext'e dönmesin
@@ -1173,70 +1195,71 @@ namespace GsuTimetablingSystem.Data
                     (16, 'TUR002 Türk Dili II',                                   17, 2, FALSE, '', 80, 2),  -- ortak ders
                     (17, 'FLF201 Fransızca CEF B2.2 Akademik',                   29, 4, FALSE, '', 80, 2),  -- T4 (Osman Olcay Kunal)
                     (18, 'Yabancı Dil II',                                         18, 2, FALSE, '', 80, 2),  -- ortak ders
-                    -- 3. Yarıyıl
-                    (19, 'INF215 Kesikli Matematik',                              3, 3, FALSE, '', 60, 3),  -- T3
-                    (20, 'INF207 Lineer Cebir',                                   1, 4, FALSE, '', 60, 3),  -- T2+U2
-                    (21, 'INF256 Olasılık',                                        1, 3, FALSE, '', 60, 3),  -- T3
-                    (22, 'CNT250 Proje, Risk ve Değişiklik Yönetimi',            27, 2, FALSE, '', 60, 3),  -- T2
-                    (23, 'INF224 Veri Yapısı ve Algoritmalar',                    3, 4, FALSE, '', 60, 3),  -- T2+L2
-                    (24, 'ING229 Analog Elektronik',                              11, 6, FALSE, '', 60, 3),  -- T2+U2+L2
-                    (25, 'Sosyal Seçmeli Ders (3. Yarıyıl)',                     26, 2, TRUE,  'Sosyal-3', 30, 3),
+                    -- 3. Yarıyıl  (11.07.2026 ects.gsu.edu.tr/tr/program/programmedetails/12?ayid=36 + her dersin
+                    -- kendi coursedetails sayfasındaki "Dersi Veren(ler)" alanı ile doğrulandı)
+                    (20, 'ING207 Lineer Cebir',                                   16, 4, FALSE, '', 60, 3),  -- T2+U2 (Marie-Christine Peroueme) — eski kayıtta kod yanlışlıkla 'INF207', öğretmen yanlıştı
+                    (21, 'INF256 Olasılık',                                       15, 3, FALSE, '', 60, 3),  -- T3 (Tamer Özyiğit) — eski kayıtta öğretmen yanlıştı
+                    (23, 'INF224 Veri Yapısı ve Algoritmalar',                    3, 4, FALSE, '', 60, 3),  -- T2+L2 (Günce Keziban Orman, prereq INF112/INF114)
+                    (24, 'ING229 Analog Elektronik',                              13, 6, FALSE, '', 60, 3),  -- T2+U2+L2 (Erden Tuğcu) — eski kayıtta öğretmen yanlıştı
+                    (25, 'Sosyal Seçmeli Ders (3. Yarıyıl)',                     26, 2, TRUE,  'Sosyal-3', 30, 3),  -- grup dersi, tek öğretmen yok
                     (26, 'Yabancı Dil III',                                        18, 2, FALSE, '', 60, 3),  -- ortak ders
                     -- 4. Yarıyıl
-                    (27, 'INF225 Otomatlar ve Diller Teorisi',                    3, 3, FALSE, '', 60, 4),  -- T3
-                    (28, 'ING208 Bilgisayar Müh. Sayısal Yöntemler',             1, 3, FALSE, '', 60, 4),  -- T2+U1
-                    (29, 'INF257 İstatistik ve Veri Analizi',                     1, 3, FALSE, '', 60, 4),  -- T3
-                    (30, 'ING220 Sayısal Elektronik',                             11, 4, FALSE, '', 60, 4),  -- T2+L2
-                    (31, 'INF243 Nesneye Yönelik Programlama',                    4, 4, FALSE, '', 60, 4),  -- T2+L2
-                    (32, 'INF291 Staj I',                                          15, 2, FALSE, '', 60, 4),  -- L2
+                    (28, 'ING208 Diferansiyel Denklemler',                        18, 3, FALSE, '', 60, 4),  -- T2+U1 (Damien Berthet) — eski kayıtta adı 'Sayısal Yöntemler', öğretmen yanlıştı
+                    (29, 'INF257 İstatistik ve Veri Analizi',                     3, 3, FALSE, '', 60, 4),  -- T3 (Günce Keziban Orman) — eski kayıtta öğretmen yanlıştı
+                    (30, 'ING220 Sayısal Elektronik',                             4, 4, FALSE, '', 60, 4),  -- T2+L2 (Murat Akın; ortak: Reis Burak Arslan) — eski kayıtta öğretmen yanlıştı
+                    (31, 'INF243 Nesneye Yönelik Programlama',                    8, 4, FALSE, '', 60, 4),  -- T2+L2 (Ayşegül Tüysüz Erman, prereq INF114) — eski kayıtta öğretmen yanlıştı
+                    (32, 'INF291 Staj I',                                          4, 2, FALSE, '', 60, 4),  -- L2 (Murat Akın) — eski kayıtta öğretmen yanlıştı
                     (33, 'Yabancı Dil IV',                                         18, 2, FALSE, '', 60, 4),  -- ortak ders
                     -- 5. Yarıyıl
-                    (34, 'INF334 Bilgisayar Ağları',                              2, 4, FALSE, '', 40, 5),  -- T2+L2
-                    (35, 'INF324 Veri Tabanı Tasarımı ve Uygulamaları',          6, 4, FALSE, '', 40, 5),  -- T2+L2
-                    (36, 'INF344 Yapay Zeka',                                      7, 3, FALSE, '', 40, 5),  -- T3
-                    (37, 'INF345 Sayısal Sinyal İşleme',                          9, 3, FALSE, '', 40, 5),  -- T3
-                    (38, 'INF320 Bilgisayar Mimarisi',                            5, 3, FALSE, '', 40, 5),  -- T3
-                    (39, 'INF353 Web Programlama',                                 4, 3, TRUE,  'Teknik-5', 20, 5),  -- T3
-                    (40, 'INF354 Bilişimde Oyun Teorisi',                          3, 3, TRUE,  'Teknik-5', 20, 5),  -- T3
-                    (41, 'INF383 Veri Bilimi Temelleri',                           7, 3, TRUE,  'Teknik-5', 20, 5),  -- T3
-                    (42, 'INF321 Teknik Resim',                                    15, 2, TRUE,  'Teknik-5', 20, 5),
+                    (19, 'INF315 Kesikli Matematik',                              12, 3, FALSE, '', 40, 5),  -- T3 (Özgün Pınarer) — eski kayıtta yanlışlıkla 3.yy'da, kod 'INF215', öğretmen yanlıştı
+                    (22, 'CNT250 Proje, Risk ve Değişiklik Yönetimi',            30, 2, FALSE, '', 40, 5),  -- T2 (Esin Mukul Taylan) — eski kayıtta yanlışlıkla 3.yy'daydı, öğretmen yanlıştı
+                    (35, 'INF324 Veri Tabanı Tasarımı ve Uygulamaları',          17, 4, FALSE, '', 40, 5),  -- T2+L2 (Sultan Nezihe Turhan) — eski kayıtta öğretmen yanlıştı
+                    (37, 'INF345 Sayısal Sinyal İşleme',                          31, 3, FALSE, '', 40, 5),  -- T3 (Mouloud Adel) — eski kayıtta öğretmen yanlıştı
+                    (38, 'INF320 Bilgisayar Mimarisi',                            4, 3, FALSE, '', 40, 5),  -- T3 (Murat Akın, prereq ING220) — eski kayıtta öğretmen yanlıştı
+                    (39, 'INF353 Web Programlama',                                 12, 3, TRUE,  'Teknik-5', 20, 5),  -- T3 (Özgün Pınarer) — eski kayıtta öğretmen yanlıştı
+                    (40, 'INF354 Bilişimde Oyun Teorisi ve Uygulamaları',          15, 3, TRUE,  'Teknik-5', 20, 5),  -- T3 (Tamer Özyiğit) — eski kayıtta öğretmen yanlıştı
+                    (41, 'INF454 İnsan Bilgisayar Etkileşiminin Temelleri',       5, 3, TRUE,  'Teknik-5', 20, 5),  -- T3 (Reis Burak Arslan) — eski kayıtta yanlışlıkla 7.yy'da, kod 'INF383', öğretmen yanlıştı
+                    (42, 'INF321 Teknik Resim',                                    15, 2, TRUE,  'Teknik-5', 20, 5),  -- ECTS Not 5: 5.yy'a bağlı denklik dersi, kendi coursedetails sayfası yok -- öğretmen ataması doğrulanamadı
                     (43, 'Yabancı Dil V',                                           18, 2, FALSE, '', 40, 5),  -- ortak ders
+                    (74, 'INF356 Veri Analizine Giriş',                            3, 3, FALSE, '', 40, 5),  -- T3 (Günce Keziban Orman, prereq INF256/INF257)
                     -- 6. Yarıyıl
-                    (44, 'INF333 İşletim Sistemleri',                              2, 4, FALSE, '', 40, 6),  -- T2+L2
-                    (45, 'INF382 Gömülü Sistemler',                               10, 4, FALSE, '', 40, 6),  -- T4
-                    (46, 'INF340 Mikroişlemciler',                                 11, 4, FALSE, '', 40, 6),  -- T2+L2
-                    (47, 'INF381 Yazılım Mühendisliği ve NOP Tasarım',            5, 4, FALSE, '', 40, 6),  -- T4
-                    (48, 'INF330 Robotik',                                         10, 3, TRUE,  'Teknik-6', 20, 6),  -- T3
-                    (49, 'INF360 Veri Tabanı Yönetimi ve Güvenliği',              6, 3, TRUE,  'Teknik-6', 20, 6),  -- T3
-                    (50, 'INF365 Haberleşme ve Multimedya',                       13, 3, TRUE,  'Teknik-6', 20, 6),  -- T3
-                    (51, 'INF366 Sayısal Görüntü İşleme',                          9, 3, TRUE,  'Teknik-6', 20, 6),  -- T3
-                    (52, 'INF302 Nesnelerin İnternetine Giriş',                   24, 4, TRUE,  'Teknik-6', 20, 6),  -- T2+L2
-                    (53, 'INF399 Staj II',                                          15, 2, FALSE, '', 40, 6),  -- L2
+                    (34, 'INF334 Bilgisayar Ağları',                              2, 4, FALSE, '', 40, 6),  -- T2+L2 (Tankut Acarman, prereq INF256/INF257) — eski kayıtta yanlışlıkla 5.yy'daydı
+                    (27, 'INF323 Otomatlar ve Diller Teorisi',                    12, 3, FALSE, '', 40, 6),  -- T3 (Özgün Pınarer) — eski kayıtta yanlışlıkla 4.yy'da, kod 'INF225', öğretmen yanlıştı
+                    (44, 'INF333 İşletim Sistemleri',                              32, 4, FALSE, '', 40, 6),  -- T2+L2 (Burak Arslan — id5'ten farklı kişi, prereq INF116) — eski kayıtta öğretmen yanlıştı
+                    (46, 'INF340 Mikroişlemciler',                                 5, 4, FALSE, '', 40, 6),  -- T2+L2 (Reis Burak Arslan) — eski kayıtta öğretmen yanlıştı
+                    (48, 'INF330 Robotik',                                         14, 3, TRUE,  'Teknik-6', 20, 6),  -- T3 (Pınar Uluer) — eski kayıtta öğretmen yanlıştı
+                    (49, 'INF360 Veri Tabanı Yönetimi ve Güvenliği',              17, 3, TRUE,  'Teknik-6', 20, 6),  -- T3 (Sultan Nezihe Turhan, prereq INF324) — eski kayıtta öğretmen yanlıştı
+                    (50, 'INF365 Haberleşme ve Multimedya',                       11, 3, TRUE,  'Teknik-6', 20, 6),  -- T3 (Burak Parlak) — eski kayıtta öğretmen yanlıştı
+                    (51, 'INF366 Sayısal Görüntü İşleme',                          31, 3, TRUE,  'Teknik-6', 20, 6),  -- T3 (Mouloud Adel) — eski kayıtta öğretmen yanlıştı
+                    (53, 'INF399 Staj II',                                          4, 2, FALSE, '', 40, 6),  -- L2 (Murat Akın, prereq INF291) — eski kayıtta öğretmen yanlıştı
+                    (75, 'INF325 Sayısal Analiz',                                   11, 3, FALSE, '', 40, 6),  -- T3 (Burak Parlak, prereq ING207)
                     -- 7. Yarıyıl
-                    (54, 'INF493 Bilgisayar Müh. Araştırma Konuları',             1, 3, FALSE, '', 30, 7),  -- T3
-                    (55, 'INF492 Bitirme Projesi I',                               8, 3, FALSE, '', 30, 7),  -- U3
-                    (56, 'INF471 Siber Güvenliğe Giriş',                          12, 4, TRUE,  'Teknik-7', 15, 7),  -- T2+L2
-                    (57, 'INF438 İleri Veri Tabanları',                            6, 3, TRUE,  'Teknik-7', 15, 7),  -- T3
-                    (58, 'INF400 Derleyici Tasarımı',                              4, 3, TRUE,  'Teknik-7', 15, 7),  -- T3
-                    (59, 'INF410 Medical Informatics',                              8, 3, TRUE,  'Teknik-7', 15, 7),  -- T3
-                    (60, 'INF443 Dağıtık Sistemler ve Uygulamalar',              23, 3, TRUE,  'Teknik-7', 15, 7),  -- T3
-                    (61, 'INF432 Bilgisayar Grafikleri',                          22, 3, TRUE,  'Teknik-7', 15, 7),  -- T3
-                    (62, 'INF454 İnsan Bilgisayar Etkileşiminin Temelleri',      14, 3, TRUE,  'Teknik-7', 15, 7),  -- T3
-                    (63, 'Sosyal Seçmeli Ders (7. Yarıyıl)',                     26, 2, TRUE,  'Sosyal-7', 15, 7),
+                    (54, 'INF493 Bilgisayar Müh. Araştırma Konuları',             6, 3, FALSE, '', 30, 7),  -- T3 (Uzay Çetin) — eski kayıtta öğretmen yanlıştı
+                    (36, 'INF444 Yapay Zeka',                                      14, 3, FALSE, '', 30, 7),  -- T3 (Pınar Uluer, prereq INF224) — eski kayıtta yanlışlıkla 5.yy'da, kod 'INF344', öğretmen yanlıştı
+                    (56, 'INF471 Bilişimde Güvenlik',                             4, 4, FALSE, '', 15, 7),  -- T2+L2 (Murat Akın, prereq INF334) — ECTS'de Zorunlu; eski kayıtta yanlışlıkla seçmeliydi, öğretmen yanlıştı
+                    (58, 'INF400 Veri Derlemesi',                                   32, 3, FALSE, '', 15, 7),  -- T3 (Burak Arslan — id5'ten farklı kişi, prereq INF114) — ECTS'de Zorunlu; eski kayıtta yanlışlıkla seçmeliydi, adı 'Derleyici Tasarımı' ve öğretmen yanlıştı
+                    (60, 'INF443 Dağıtık Sistemler ve Uygulamalar',              6, 3, FALSE, '', 15, 7),  -- T3 (Uzay Çetin, prereq INF114/INF243) — ECTS'de Zorunlu; eski kayıtta yanlışlıkla seçmeliydi, öğretmen yanlıştı
+                    (52, 'INF402 Nesnelerin İnternetine Giriş',                   12, 4, FALSE, '', 15, 7),  -- T2+L2 (Özgün Pınarer) — eski kayıtta yanlışlıkla 6.yy'da, seçmeli, kod 'INF302' ve öğretmen yanlıştı
+                    (57, 'INF438 İleri Veri Tabanları',                            17, 3, TRUE,  'Teknik-7', 15, 7),  -- T3 (Sultan Nezihe Turhan, prereq INF324) — eski kayıtta öğretmen yanlıştı
+                    (59, 'INF410 Medical Informatics',                              5, 3, TRUE,  'Teknik-7', 15, 7),  -- T3 (Reis Burak Arslan) — eski kayıtta öğretmen yanlıştı
+                    (61, 'INF432 Bilgisayar Grafikleri',                          11, 3, TRUE,  'Teknik-7', 15, 7),  -- T3 (Burak Parlak) — eski kayıtta öğretmen yanlıştı
+                    (63, 'Sosyal Seçmeli Ders (7. Yarıyıl)',                     26, 2, TRUE,  'Sosyal-7', 15, 7),  -- grup dersi, tek öğretmen yok
                     (64, 'Yabancı Dil VII',                                         18, 2, FALSE, '', 30, 7),  -- ortak ders
                     -- 8. Yarıyıl
-                    (65, 'INF494 Bitirme Projesi II',                              8, 3, FALSE, '', 30, 8),  -- U3
+                    (65, 'INF494 Bitirme Projesi',                                  1, 3, FALSE, '', 30, 8),  -- U3 (Gülfem Alptekin, prereq INF493) — eski kayıtta öğretmen yanlıştı
+                    (45, 'INF482 Gömülü Sistem Tasarım Temelleri',                10, 4, FALSE, '', 30, 8),  -- T4 (Ahmet Teoman Naskali) — eski kayıtta yanlışlıkla 6.yy'da, kod 'INF382' idi
+                    (47, 'INF481 Yazılım Mühendisliği ve Nesneye Yönelik Tasarım', 1, 4, FALSE, '', 30, 8),  -- T4 (Gülfem Alptekin) — eski kayıtta yanlışlıkla 6.yy'da, kod 'INF381' ve öğretmen yanlıştı
                     -- Not: IND ve INF grupları ayrı seçmeli havuzlar (ECTS: 2 adet INF + 1 adet IND + 1 adet CNT seçilir).
-                    -- CNT grubu (CNT416 Sosyal Medya, CNT414 Felsefe) henüz sisteme girilmedi; admin "Yeni Ders Ekle"
-                    -- ekranından 'CNT-8' grubuna ders eklediğinde o kısıt da otomatik devreye girer.
-                    (66, 'IND471 Yöneylem Araştırması',                           23, 4, TRUE,  'IND-8', 15, 8),  -- T2+U2
-                    (67, 'IND472 Mühendislik Ekonomisi',                          21, 4, TRUE,  'IND-8', 15, 8),  -- T2+U2
-                    (68, 'INF472 Bulut Bilişim',                                    6, 3, TRUE,  'INF-8', 15, 8),  -- T3
-                    (69, 'INF437 Modern Ağ Yönetimi',                              2, 3, TRUE,  'INF-8', 15, 8),  -- T3
-                    (70, 'INF473 Üretken Yapay Zekaya Giriş',                      7, 3, TRUE,  'INF-8', 15, 8),  -- T3
-                    (71, 'INF474 Wireless and Mobile Networks',                    13, 3, TRUE,  'INF-8', 15, 8),  -- T3
-                    (72, 'INF441 Kriptolojinin Temelleri',                         12, 3, TRUE,  'INF-8', 15, 8),  -- T3
-                    (73, 'INF475 Kullanıcı Arayüzü ve Deneyimi Tasarımı',        14, 3, TRUE,  'INF-8', 15, 8)  -- T3
+                    (66, 'IND471 Yöneylem Araştırması',                           15, 4, TRUE,  'IND-8', 15, 8),  -- T2+U2 (Tamer Özyiğit, prereq ING207) — eski kayıtta öğretmen yanlıştı
+                    (67, 'IND472 Mühendislik Ekonomisi',                          15, 4, TRUE,  'IND-8', 15, 8),  -- T2+U2 (Tamer Özyiğit) — eski kayıtta öğretmen yanlıştı
+                    (68, 'INF472 Bulut Bilişim',                                    12, 3, TRUE,  'INF-8', 15, 8),  -- T3 (Özgün Pınarer) — eski kayıtta öğretmen yanlıştı
+                    (69, 'INF483 Bilgi Çıkarımı ve Veri Madenciliğine Giriş',       3, 3, TRUE,  'INF-8', 15, 8),  -- T3 (Günce Keziban Orman, prereq INF256/INF257) — eski kayıtta yanlışlıkla 'INF437 Modern Ağ Yönetimi' idi (ECTS'de böyle bir ders yok)
+                    (70, 'INF473 Üretken Yapay Zekaya Giriş',                      6, 3, TRUE,  'INF-8', 15, 8),  -- T3 (Uzay Çetin) — eski kayıtta öğretmen yanlıştı
+                    (71, 'INF474 Wireless and Mobile Networks',                    8, 3, TRUE,  'INF-8', 15, 8),  -- T3 (Ayşegül Tüysüz Erman) — eski kayıtta öğretmen yanlıştı
+                    (72, 'INF441 Kriptolojinin Temelleri',                         12, 3, TRUE,  'INF-8', 15, 8),  -- T3 — ECTS Not 19: 'INF441 Şifrelemeye Giriş' yerine geçen güncel ders, kendi coursedetails sayfası yok -- öğretmen ataması doğrulanamadı
+                    (73, 'INF475 Kullanıcı Arayüzü ve Deneyimi Tasarımı',        15, 3, TRUE,  'INF-8', 15, 8),  -- T3 (Tamer Özyiğit; ortak: Reis Burak Arslan) — eski kayıtta öğretmen yanlıştı
+                    (76, 'CNT416 Sosyal Medya',                                   17, 2, TRUE,  'CNT-8', 15, 8),  -- T2 (Sultan Nezihe Turhan)
+                    (77, 'CNT414 Felsefe',                                        33, 2, TRUE,  'CNT-8', 15, 8)  -- T2 (Zübeyde Gaye Çankaya Eksen)
                 ON DUPLICATE KEY UPDATE
                     title = VALUES(title), teacher_id = VALUES(teacher_id),
                     weekly_hours = VALUES(weekly_hours), is_elective = VALUES(is_elective),
@@ -1244,17 +1267,29 @@ namespace GsuTimetablingSystem.Data
                     expected_student_count = VALUES(expected_student_count),
                     semester = VALUES(semester);
 
+                -- id=55 ('INF492 Bitirme Projesi I') ve id=62 (INF454'ün 7.yy'daki eski kopyası) ECTS'de
+                -- karşılığı olmayan/mükerrer kayıtlardı; DELETE IGNORE ile temizleniyor (canlıda başka
+                -- bir tabloya FK ile bağlıysa sessizce atlanır, uygulama başlangıcını bozmaz).
+                DELETE IGNORE FROM courses WHERE id IN (55, 62);
+
                 INSERT IGNORE INTO teacher_unavailability (teacher_id, time_slot_id) VALUES
                     (1, 2), (1, 10), (2, 4), (2, 8), (3, 6), (3, 12),
                     (4, 1), (4, 9), (5, 3), (5, 11), (6, 5), (7, 7),
                     (8, 2), (8, 6);
 
                 -- Demo seçmeli kayıtlar (CS-3 → 5. yarıyıl seçmelileri, CS-4 → 7. yarıyıl)
+                -- id=56/60, 7.yy'da artık Zorunlu olduğundan (bkz. yukarı) öğrenci 7/8'in eski seçimleri
+                -- geçersiz kaldı; Sosyal-7 grubundan (63) geçerli seçimlerle değiştirildi.
+                DELETE FROM student_electives
+                    WHERE (student_id = 5 AND course_id = 41)
+                       OR (student_id = 6 AND course_id = 42)
+                       OR (student_id = 7 AND course_id = 56)
+                       OR (student_id = 8 AND course_id = 60);
                 INSERT IGNORE INTO student_electives (student_id, course_id) VALUES
-                    (5, 39), (5, 41),
-                    (6, 40), (6, 42),
-                    (7, 56), (7, 59),
-                    (8, 60), (8, 61);
+                    (5, 39),
+                    (6, 40),
+                    (7, 59), (7, 63),
+                    (8, 61), (8, 63);
 
                 -- Demo kayıt talepleri (zaten onaylı)
                 INSERT IGNORE INTO enrollments (id, student_id, semester, status) VALUES
@@ -1267,25 +1302,35 @@ namespace GsuTimetablingSystem.Data
                     (7, 7, 7, 'approved'),
                     (8, 8, 7, 'approved');
 
-                -- Ön koşul verileri (ECTS'den)
+                -- Eski, yanlış ön koşul kayıtları (id=34 hedefi 4.yy'da INF116 sanılmıştı,
+                -- gerçekte 6.yy dersi ve ön koşulu INF256/INF257 OR-grubu — bkz. courses düzeltmesi).
+                DELETE FROM course_prerequisites WHERE course_id = 34 AND prerequisite_course_id = 13;
+
+                -- Ön koşul verileri (ECTS'den, 11.07.2026 itibariyle 3-8. yy doğrulandı)
                 -- prereq_group: aynı grup numarasındaki kayıtlardan biri yeterli (OR mantığı)
                 INSERT IGNORE INTO course_prerequisites (course_id, prerequisite_course_id, prereq_group) VALUES
                     (23, 4,  1),   -- INF224 Veri Yapısı ← INF112 (grup 1)
                     (23, 12, 1),   -- INF224 Veri Yapısı ← INF114 (grup 1, OR)
                     (31, 12, 1),   -- INF243 NOP ← INF114
-                    (34, 13, 1),   -- INF334 Bilg. Ağları ← INF116
-                    (36, 23, 1),   -- INF344 Yapay Zeka ← INF224
+                    (34, 21, 1),   -- INF334 Bilg. Ağları ← INF256 (grup 1, OR)
+                    (34, 29, 1),   -- INF334 Bilg. Ağları ← INF257 (grup 1, OR)
+                    (36, 23, 1),   -- INF444 Yapay Zeka ← INF224
+                    (56, 34, 1),   -- INF471 Bilişimde Güvenlik ← INF334
                     (38, 30, 1),   -- INF320 Bilg. Mimarisi ← ING220
                     (44, 13, 1),   -- INF333 İşletim Sistemleri ← INF116
                     (49, 35, 1),   -- INF360 Veri Tabanı Yön. ← INF324
                     (53, 32, 1),   -- INF399 Staj II ← INF291
-                    (56, 34, 1),   -- INF471 Siber Güvenlik ← INF334
                     (57, 35, 1),   -- INF438 İleri VT ← INF324
-                    (58, 12, 1),   -- INF400 Derleyici ← INF114
+                    (58, 12, 1),   -- INF400 Veri Derlemesi ← INF114
                     (60, 12, 1),   -- INF443 Dağıtık ← INF114 (grup 1)
                     (60, 31, 1),   -- INF443 Dağıtık ← INF243 (grup 1, OR)
-                    (65, 54, 1),   -- INF494 Bitirme II ← INF493
-                    (66, 20, 1);   -- IND471 Yöneylem ← INF207
+                    (65, 54, 1),   -- INF494 Bitirme Projesi ← INF493
+                    (66, 20, 1),   -- IND471 Yöneylem ← ING207
+                    (74, 21, 1),   -- INF356 Veri Analizine Giriş ← INF256 (grup 1, OR)
+                    (74, 29, 1),   -- INF356 Veri Analizine Giriş ← INF257 (grup 1, OR)
+                    (75, 20, 1),   -- INF325 Sayısal Analiz ← ING207
+                    (69, 21, 1),   -- INF483 Bilgi Çıkarımı ← INF256 (grup 1, OR)
+                    (69, 29, 1);   -- INF483 Bilgi Çıkarımı ← INF257 (grup 1, OR)
                 """);
         }
 
@@ -1306,6 +1351,17 @@ namespace GsuTimetablingSystem.Data
                 """
                 SELECT COUNT(*) FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'students' AND COLUMN_NAME = 'birth_date';
+                """,
+                connection);
+            return Convert.ToInt32(await command.ExecuteScalarAsync()) == 0;
+        }
+
+        private static async Task<bool> RequiresTeacherNumberMigrationAsync(MySqlConnection connection)
+        {
+            await using var command = new MySqlCommand(
+                """
+                SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'teachers' AND COLUMN_NAME = 'teacher_number';
                 """,
                 connection);
             return Convert.ToInt32(await command.ExecuteScalarAsync()) == 0;
@@ -1905,15 +1961,17 @@ namespace GsuTimetablingSystem.Data
         {
             var teachers = new List<Teacher>();
             await using var command = new MySqlCommand(
-                "SELECT id, name, email, password FROM teachers ORDER BY id;",
+                "SELECT id, teacher_number, name, email, password FROM teachers ORDER BY id;",
                 connection);
             await using var reader = await command.ExecuteReaderAsync();
 
             while (await reader.ReadAsync())
             {
+                var teacherNumberOrdinal = reader.GetOrdinal("teacher_number");
                 teachers.Add(new Teacher
                 {
                     Id = reader.GetInt32("id"),
+                    TeacherNumber = reader.IsDBNull(teacherNumberOrdinal) ? string.Empty : reader.GetString(teacherNumberOrdinal),
                     Name = reader.GetString("name"),
                     Email = reader.GetString("email"),
                     Password = string.Empty

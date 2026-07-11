@@ -10,6 +10,7 @@ export interface Student {
 
 export interface Teacher {
   Id: number;
+  TeacherNumber: string;
   Name: string;
   Email: string;
   UnavailabilitySlots: number[];

@@ -91,7 +91,7 @@ Bağlantı bilgilerinin varsayılanları `appsettings.json` içindedir.
 | Rol | Kullanıcı adı | Şifre |
 |---|---|---|
 | Admin | `admin@gsu.edu.tr` | `1234` |
-| Öğretmen | `gulfem.alptekin@gsu.edu.tr` | `1234` |
+| Öğretmen | `1001` (öğretmen no) | `1234` |
 | Öğrenci | `2022001` | `19/07/2004` |
 
 Tüm öğretmen ve öğrenci giriş bilgileri `ogretmen_giris_bilgileri.xlsx` ve
@@ -124,8 +124,7 @@ Ayrıntılı ve önceliklendirilmiş bir değerlendirme için `GSU_Teslim_Degerl
 dosyasına bakın. Özetle:
 
 - Oda / öğretmen / zaman dilimi ekleme-silme arayüzden yapılamıyor (yalnızca seed verisi).
-- 3-8. yarıyıl ders-öğretmen eşleşmeleri veritabanında mevcut ama resmi GSÜ ders programı
-  ilanıyla (PDF) birebir doğrulanmadı; 1. ve 2. yarıyıl ects.gsu.edu.tr üzerinden doğrulandı.
-  Bu, PDF'e erişim sağlanınca kapatılabilecek tek açık madde.
+- Tüm yarıyıllardaki (1-8) ders-öğretmen eşleşmeleri ve ön koşullar ects.gsu.edu.tr üzerindeki
+  resmi müfredat ve ders detay sayfalarıyla (11.07.2026 itibariyle) birebir doğrulandı.
 - Admin şifresi `appsettings.json`'da düz metin tutuluyor (tek operatör sırrı; öğrenci/öğretmen
   şifreleri veritabanında hash'lenmiş durumda).

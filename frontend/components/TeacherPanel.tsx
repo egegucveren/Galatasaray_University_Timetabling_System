@@ -118,7 +118,7 @@ function AvailabilityGrid({
 }
 
 export default function TeacherPanel() {
-  const [email, setEmail]       = useState("");
+  const [teacherNumberInput, setTeacherNumberInput] = useState("");
   const [password, setPassword] = useState("");
   const [teacher, setTeacher]   = useState<Teacher | null>(null);
   const [timeSlots, setTimeSlots]   = useState<TimeSlot[]>([]);
@@ -165,9 +165,13 @@ export default function TeacherPanel() {
 
   async function handleLogin() {
     setError("");
+    if (!teacherNumberInput.trim()) {
+      setError("Öğretmen numaranızı girin.");
+      return;
+    }
     setStatus("Giriş kontrol ediliyor…");
     try {
-      const t = await loginTeacher(email, password);
+      const t = await loginTeacher(teacherNumberInput.trim(), password);
       setTeacher(t);
       const [slots, avail] = await Promise.all([
         getTimeSlots(),
@@ -306,12 +310,26 @@ export default function TeacherPanel() {
 
         {!teacher ? (
           <>
-            <label className="field-label">E-posta</label>
-            <input className="field-input mb-3" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label className="field-label">Öğretmen Numarası</label>
+            <input
+              className="field-input mb-3"
+              type="text"
+              inputMode="numeric"
+              autoComplete="username"
+              value={teacherNumberInput}
+              onChange={(e) => setTeacherNumberInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
+            />
             <label className="field-label">Şifre</label>
-            <input className="field-input mb-5" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              className="field-input mb-5"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleLogin(); }}
+            />
             <button className="btn btn-primary w-full" onClick={handleLogin}>Giriş Yap</button>
-            <p className="text-xs text-muted mt-3">Demo: gulfem.alptekin@gsu.edu.tr / 1234</p>
+            <p className="text-xs text-muted mt-3">Demo: 1001 / 1234</p>
             {error && <p className="text-primary text-xs mt-2">{error}</p>}
           </>
         ) : (
@@ -322,7 +340,7 @@ export default function TeacherPanel() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-ink truncate">{teacher.Name}</p>
-                <p className="text-xs text-muted truncate">{teacher.Email}</p>
+                <p className="text-xs text-muted truncate">No: {teacher.TeacherNumber} · {teacher.Email}</p>
               </div>
               <button className="btn btn-secondary text-xs py-1 px-2 shrink-0" onClick={handleLogout}>Çıkış</button>
             </div>
