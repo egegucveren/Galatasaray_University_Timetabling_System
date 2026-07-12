@@ -163,6 +163,48 @@ app.MapGet("/api/teachers", async (HttpRequest request) =>
     return Results.Ok(await repository.GetAllTeachersAsync());
 });
 
+// POST /api/admin/teachers — yeni öğretmen ekler: e-posta (ad.soyad@gsu.edu.tr) ve
+// öğretmen numarası (giriş için, teacher_number) otomatik üretilir; şifre rastgele
+// 4 haneli PIN olarak üretilip hash'lenir, düz metin şifre yalnızca bu yanıtta bir kez döner.
+app.MapPost("/api/admin/teachers", async (HttpRequest request, AddTeacherRequest body) =>
+{
+    if (!TryGetAdminToken(request, adminSessions, out _))
+        return Results.Json(new { Message = "Admin girisi gereklidir." }, statusCode: 401);
+
+    if (string.IsNullOrWhiteSpace(body.FullName))
+        return Results.Json(new { Message = "Ad soyad boş olamaz." }, statusCode: 400);
+
+    try
+    {
+        var (teacher, password) = await repository.AddTeacherAsync(body.Title?.Trim() ?? "", body.FullName.Trim());
+        return Results.Ok(new { Teacher = teacher, GeneratedPassword = password });
+    }
+    catch (MySqlException ex) when (ex.Number == 1062)
+    {
+        return Results.Json(new { Message = "Bu öğretmen için e-posta/numara çakışması oluştu, tekrar deneyin." }, statusCode: 409);
+    }
+});
+
+// DELETE /api/admin/teachers/{id} — öğretmeni siler. Öğretmenin hâlâ ders(ler)i varsa
+// FK bütünlüğü bozulmaması için reddedilir (409).
+app.MapDelete("/api/admin/teachers/{id:int}", async (HttpRequest request, int id) =>
+{
+    if (!TryGetAdminToken(request, adminSessions, out _))
+        return Results.Json(new { Message = "Admin girisi gereklidir." }, statusCode: 401);
+
+    try
+    {
+        var deleted = await repository.DeleteTeacherAsync(id);
+        return deleted
+            ? Results.Ok(new { Message = "Öğretmen silindi." })
+            : Results.Json(new { Message = "Öğretmen bulunamadı." }, statusCode: 404);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Json(new { Message = ex.Message }, statusCode: 409);
+    }
+});
+
 app.MapPost("/api/courses", async (HttpRequest request, AddCourseRequest body) =>
 {
     if (!TryGetAdminToken(request, adminSessions, out _))

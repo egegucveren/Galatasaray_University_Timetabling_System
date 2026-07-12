@@ -1,11 +1,13 @@
 import { useState } from "react";
 import {
   addCourse,
+  addTeacher,
   adjustSchedule,
   advanceStudentsSemester,
   checkPrerequisites,
   deleteCourse,
   deleteGrade,
+  deleteTeacher,
   generateSchedule,
   getAdminSchedule,
   getAdminStudents,
@@ -86,6 +88,13 @@ export default function AdminPanel() {
   const [newElectiveGroup, setNewElectiveGroup] = useState("");
   const [newExpectedCount, setNewExpectedCount] = useState<number>(30);
   const [addError, setAddError] = useState("");
+
+  // Yeni öğretmen ekleme formu state
+  const [newTeacherTitle, setNewTeacherTitle] = useState("");
+  const [newTeacherFullName, setNewTeacherFullName] = useState("");
+  const [teacherSaving, setTeacherSaving] = useState(false);
+  const [teacherAddError, setTeacherAddError] = useState("");
+  const [teacherAddResult, setTeacherAddResult] = useState<{ teacherNumber: string; email: string; password: string } | null>(null);
 
   async function handleLogin() {
     setError("");
@@ -371,6 +380,41 @@ export default function AdminPanel() {
       setSchedule((prev) => prev.filter((s) => s.CourseId !== id));
       setStatus(`"${title}" silindi.`);
     } catch (e: unknown) { setStatus(e instanceof Error ? e.message : "Hata oluştu."); }
+  }
+
+  // ── Öğretmen CRUD ──
+  // E-posta ve öğretmen numarası (giriş için) sunucu tarafında otomatik üretilir
+  // (ad.soyad@gsu.edu.tr formatında, çakışma varsa sona sayı eklenir).
+
+  async function handleAddTeacher() {
+    if (!admin) return;
+    setTeacherAddError("");
+    setTeacherAddResult(null);
+    if (!newTeacherFullName.trim()) { setTeacherAddError("Ad soyad boş olamaz."); return; }
+
+    setTeacherSaving(true);
+    try {
+      const { Teacher: created, GeneratedPassword } = await addTeacher(admin.Token, {
+        title: newTeacherTitle.trim(),
+        fullName: newTeacherFullName.trim(),
+      });
+      setTeachers((prev) => [...prev, created].sort((a, b) => a.Name.localeCompare(b.Name)));
+      setTeacherAddResult({ teacherNumber: created.TeacherNumber, email: created.Email, password: GeneratedPassword });
+      setNewTeacherTitle(""); setNewTeacherFullName("");
+    } catch (e: unknown) {
+      setTeacherAddError(e instanceof Error ? e.message : "Öğretmen eklenemedi.");
+    } finally {
+      setTeacherSaving(false);
+    }
+  }
+
+  async function handleDeleteTeacher(id: number, name: string) {
+    if (!admin || !confirm(`"${name}" öğretmeni silinecek. Emin misiniz?`)) return;
+    try {
+      await deleteTeacher(admin.Token, id);
+      setTeachers((prev) => prev.filter((t) => t.Id !== id));
+      setStatus(`"${name}" silindi.`);
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : "Hata oluştu."); }
   }
 
   const daySlots = timeSlots.filter((s) => s.Day === selectedDay).sort((a, b) => getStartTime(a).localeCompare(getStartTime(b)));
@@ -944,6 +988,92 @@ export default function AdminPanel() {
 
             {addError && <p className="text-primary text-xs mb-3">{addError}</p>}
             <button className="btn btn-primary w-full" onClick={handleAddCourse}>Ders Ekle</button>
+          </div>
+
+          {/* Öğretmen listesi */}
+          <div className="card">
+            <div className="p-5">
+              <h2 className="section-heading mb-4">Öğretmen Listesi ({teachers.length})</h2>
+              <div className="overflow-x-auto rounded-lg border border-line">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-xs text-muted uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left border-b border-line">No</th>
+                      <th className="px-3 py-2 text-left border-b border-line">Ad Soyad</th>
+                      <th className="px-3 py-2 text-left border-b border-line">E-posta</th>
+                      <th className="px-3 py-2 text-center border-b border-line">Ders Sayısı</th>
+                      <th className="px-3 py-2 border-b border-line"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teachers.map((t, i) => {
+                      const courseCount = courses.filter((c) => c.TeacherId === t.Id).length;
+                      return (
+                        <tr key={t.Id} className={i % 2 === 0 ? "bg-white" : "bg-gray-50/40"}>
+                          <td className="px-3 py-2 text-muted border-b border-line text-xs font-mono">{t.TeacherNumber}</td>
+                          <td className="px-3 py-2 font-medium text-ink border-b border-line">{t.Name}</td>
+                          <td className="px-3 py-2 text-muted border-b border-line text-xs">{t.Email}</td>
+                          <td className="px-3 py-2 text-center border-b border-line">{courseCount}</td>
+                          <td className="px-3 py-2 border-b border-line text-right">
+                            <button
+                              onClick={() => handleDeleteTeacher(t.Id, t.Name)}
+                              disabled={courseCount > 0}
+                              title={courseCount > 0 ? "Önce bu öğretmenin derslerini başka bir öğretmene atayın veya silin." : undefined}
+                              className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors disabled:text-gray-300 disabled:cursor-not-allowed"
+                            >Sil</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {teachers.length === 0 && (
+                      <tr><td colSpan={5} className="px-3 py-6 text-center text-muted italic text-sm">Öğretmen bulunamadı.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Öğretmen ekleme formu */}
+          <div className="card p-5">
+            <h2 className="section-heading">Yeni Öğretmen Ekle</h2>
+
+            <label className="field-label">Unvan (opsiyonel)</label>
+            <input className="field-input mb-3" placeholder="Örn: Prof. Dr." value={newTeacherTitle} onChange={(e) => setNewTeacherTitle(e.target.value)} />
+
+            <label className="field-label">Ad Soyad</label>
+            <input className="field-input mb-3" placeholder="Örn: Ahmet Yılmaz" value={newTeacherFullName} onChange={(e) => setNewTeacherFullName(e.target.value)} />
+
+            <p className="text-[0.65rem] text-muted mb-3">
+              Öğretmen numarası ve e-posta ({newTeacherFullName.trim() ? "örn: " : ""}
+              {newTeacherFullName.trim() && (
+                <span className="font-mono">
+                  {newTeacherFullName
+                    .trim()
+                    .toLocaleLowerCase("tr-TR")
+                    .replace(/ç/g, "c").replace(/ğ/g, "g").replace(/ı/g, "i")
+                    .replace(/ö/g, "o").replace(/ş/g, "s").replace(/ü/g, "u")
+                    .replace(/[^a-z0-9\s]/g, "")
+                    .trim()
+                    .replace(/\s+/g, ".")}@gsu.edu.tr
+                </span>
+              )}) ve giriş şifresi otomatik oluşturulur.
+            </p>
+
+            {teacherAddError && <p className="text-primary text-xs mb-3">{teacherAddError}</p>}
+            <button className="btn btn-primary w-full" disabled={teacherSaving} onClick={handleAddTeacher}>
+              {teacherSaving ? "Ekleniyor…" : "Öğretmen Ekle"}
+            </button>
+
+            {teacherAddResult && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-800 mt-3">
+                <p className="font-semibold mb-0.5">Öğretmen eklendi — giriş bilgileri:</p>
+                <p>Öğretmen No: <span className="font-mono">{teacherAddResult.teacherNumber}</span></p>
+                <p>E-posta: <span className="font-mono">{teacherAddResult.email}</span></p>
+                <p>Şifre: <span className="font-mono">{teacherAddResult.password}</span></p>
+                <p className="text-[0.65rem] text-green-700 mt-1">Bu şifre yalnızca burada gösterilir, öğretmene iletin.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -100,4 +100,10 @@ namespace GsuTimetablingSystem.Models
     {
         public List<int> StudentIds { get; set; } = new();
     }
+
+    public class AddTeacherRequest
+    {
+        public string Title { get; set; } = string.Empty; // "Prof. Dr.", "Dr. Öğr. Üyesi" vb. — opsiyonel
+        public string FullName { get; set; } = string.Empty;
+    }
 }

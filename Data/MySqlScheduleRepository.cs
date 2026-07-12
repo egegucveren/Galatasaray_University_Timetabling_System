@@ -719,6 +719,108 @@ namespace GsuTimetablingSystem.Data
             return await GetTeachersAsync(connection);
         }
 
+        // Yeni öğretmen ekler: e-posta (ad.soyad@gsu.edu.tr) ve teacher_number (1000+id)
+        // otomatik üretilir, şifre rastgele 4 haneli PIN olarak üretilip hash'lenir.
+        // Unvan (varsa) isme başa eklenir — mevcut seed verisiyle aynı format
+        // ("Prof. Dr. Ad Soyad") korunur.
+        public async Task<(Teacher Teacher, string PlainPassword)> AddTeacherAsync(string title, string fullName)
+        {
+            await using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var baseSlug = SlugifyName(fullName);
+            if (string.IsNullOrEmpty(baseSlug)) baseSlug = "ogretmen";
+
+            var email = $"{baseSlug}@gsu.edu.tr";
+            var suffix = 1;
+            while (await EmailExistsInTeachersAsync(connection, email))
+            {
+                suffix++;
+                email = $"{baseSlug}{suffix}@gsu.edu.tr";
+            }
+
+            await using var maxCmd = new MySqlCommand("SELECT COALESCE(MAX(id), 0) FROM teachers;", connection);
+            var id = Convert.ToInt32(await maxCmd.ExecuteScalarAsync()) + 1;
+            var teacherNumber = (1000 + id).ToString();
+
+            var password = GenerateRandomPin();
+            var hashedPassword = PasswordHasher.Hash(password);
+
+            var trimmedTitle = title?.Trim() ?? string.Empty;
+            var displayName = string.IsNullOrEmpty(trimmedTitle) ? fullName.Trim() : $"{trimmedTitle} {fullName.Trim()}";
+
+            await using var cmd = new MySqlCommand(
+                """
+                INSERT INTO teachers (id, teacher_number, name, email, password)
+                VALUES (@id, @teacherNumber, @name, @email, @password);
+                """,
+                connection);
+            cmd.Parameters.AddWithValue("@id", id);
+            cmd.Parameters.AddWithValue("@teacherNumber", teacherNumber);
+            cmd.Parameters.AddWithValue("@name", displayName);
+            cmd.Parameters.AddWithValue("@email", email);
+            cmd.Parameters.AddWithValue("@password", hashedPassword);
+            await cmd.ExecuteNonQueryAsync();
+
+            var teacher = new Teacher
+            {
+                Id = id,
+                TeacherNumber = teacherNumber,
+                Name = displayName,
+                Email = email,
+                Password = string.Empty
+            };
+            return (teacher, password);
+        }
+
+        /// <summary>
+        /// Öğretmeni siler. Öğretmenin hâlâ ders(ler)i varsa (FK bütünlüğünü bozmamak için)
+        /// silme reddedilir ve InvalidOperationException fırlatılır — çağıran taraf bunu
+        /// kullanıcıya anlamlı bir 409 mesajı olarak döndürmeli.
+        /// </summary>
+        public async Task<bool> DeleteTeacherAsync(int teacherId)
+        {
+            await using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            await using var checkCmd = new MySqlCommand(
+                "SELECT COUNT(*) FROM courses WHERE teacher_id = @id;", connection);
+            checkCmd.Parameters.AddWithValue("@id", teacherId);
+            var courseCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+            if (courseCount > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Bu öğretmenin {courseCount} dersi var; silmeden önce derslerini başka bir öğretmene atayın veya silin.");
+            }
+
+            await using var transaction = await connection.BeginTransactionAsync();
+
+            await using var unavailCmd = new MySqlCommand(
+                "DELETE FROM teacher_unavailability WHERE teacher_id = @id;", connection, transaction);
+            unavailCmd.Parameters.AddWithValue("@id", teacherId);
+            await unavailCmd.ExecuteNonQueryAsync();
+
+            await using var deleteCmd = new MySqlCommand(
+                "DELETE FROM teachers WHERE id = @id;", connection, transaction);
+            deleteCmd.Parameters.AddWithValue("@id", teacherId);
+            var affected = await deleteCmd.ExecuteNonQueryAsync();
+
+            await transaction.CommitAsync();
+            return affected > 0;
+        }
+
+        private static async Task<bool> EmailExistsInTeachersAsync(MySqlConnection connection, string email)
+        {
+            await using var cmd = new MySqlCommand("SELECT COUNT(*) FROM teachers WHERE email = @email;", connection);
+            cmd.Parameters.AddWithValue("@email", email);
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+        }
+
+        private static string GenerateRandomPin()
+        {
+            return Random.Shared.Next(1000, 10000).ToString();
+        }
+
         public async Task<Course> AddCourseAsync(Course course)
         {
             await using var connection = new MySqlConnection(_connectionString);

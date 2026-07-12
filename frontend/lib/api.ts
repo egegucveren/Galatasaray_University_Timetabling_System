@@ -105,6 +105,19 @@ export const getCourses = (token: string) =>
 export const getTeachers = (token: string) =>
   request<Teacher[]>("/api/teachers", { headers: adminHeaders(token) });
 
+export const addTeacher = (token: string, body: { title: string; fullName: string }) =>
+  request<{ Teacher: Teacher; GeneratedPassword: string }>("/api/admin/teachers", {
+    method: "POST",
+    headers: adminHeaders(token),
+    body: JSON.stringify(body),
+  });
+
+export const deleteTeacher = (token: string, id: number) =>
+  request<void>(`/api/admin/teachers/${id}`, {
+    method: "DELETE",
+    headers: adminHeaders(token),
+  });
+
 export const addCourse = (
   token: string,
   body: {

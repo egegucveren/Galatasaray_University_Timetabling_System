@@ -100,6 +100,24 @@ PBKDF2 ile hash'lenmiş olarak saklanır; yukarıdaki tabloda görünen değerle
 kullanıcıların giriş sırasında yazdığı gerçek (düz metin) şifrelerdir, veritabanı
 içeriği değildir.
 
+## Öğretmen Yönetimi
+
+Admin panelinin "Dersler" görünümünde, ders listesinin altında bir öğretmen
+yönetim paneli var:
+
+- **Ekleme:** Unvan (opsiyonel, örn. "Prof. Dr.") ve ad soyad girilir. E-posta
+  (`ad.soyad@gsu.edu.tr`, Türkçe karakterler ASCII'ye çevrilir, çakışma varsa
+  sonuna sayı eklenir), öğretmen numarası (`teacher_number`, giriş için, `1000 + id`
+  formatında) ve giriş şifresi (rastgele 4 haneli PIN) sunucu tarafında otomatik
+  üretilir. Üretilen şifre yalnızca ekleme anında bir kez ekranda gösterilir —
+  veritabanına hash'lenmiş olarak yazılır.
+- **Silme:** Bir öğretmenin hâlâ ders(ler)i varsa silme işlemi reddedilir (önce
+  dersler başka bir öğretmene atanmalı veya silinmeli) — bu, `courses.teacher_id`
+  FK bütünlüğünü korumak içindir.
+
+İlgili uçlar: `POST /api/admin/teachers`, `DELETE /api/admin/teachers/{id}`
+(`Data/MySqlScheduleRepository.cs` içinde `AddTeacherAsync` / `DeleteTeacherAsync`).
+
 ## Proje Yapısı
 
 ```
@@ -123,7 +141,8 @@ GsuTimetablingSystem/
 Ayrıntılı ve önceliklendirilmiş bir değerlendirme için `GSU_Teslim_Degerlendirme_Raporu.docx`
 dosyasına bakın. Özetle:
 
-- Oda / öğretmen / zaman dilimi ekleme-silme arayüzden yapılamıyor (yalnızca seed verisi).
+- Oda / zaman dilimi ekleme-silme arayüzden yapılamıyor (yalnızca seed verisi). Öğretmen
+  ekleme/silme ise admin panelinden yapılabiliyor (bkz. "Öğretmen Yönetimi").
 - Tüm yarıyıllardaki (1-8) ders-öğretmen eşleşmeleri ve ön koşullar ects.gsu.edu.tr üzerindeki
   resmi müfredat ve ders detay sayfalarıyla (11.07.2026 itibariyle) birebir doğrulandı.
 - Admin şifresi `appsettings.json`'da düz metin tutuluyor (tek operatör sırrı; öğrenci/öğretmen
